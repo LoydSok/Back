@@ -31,13 +31,41 @@ const db = {
 const app = express();
 const PORT = 3000;
 
-// Кастомный middleware-логгер (должен быть до всех маршрутов)
+// Хранилище запросов для rate limiter: Map<ip, Array<timestamp>>
+const requestLog = new Map();
+
+// Middleware для ограничения количества запросов (Rate Limiter)
+const rateLimiter = (req, res, next) => {
+  const ip = req.ip;
+  const now = Date.now();
+  const WINDOW_MS = 10 * 1000; // 10 секунд
+  const MAX_REQUESTS = 5;
+
+  const timestamps = requestLog.get(ip) || [];
+
+  // Оставляем только метки времени за последние 10 секунд
+  const recentTimestamps = timestamps.filter((time) => now - time < WINDOW_MS);
+
+  if (recentTimestamps.length >= MAX_REQUESTS) {
+    return res.status(429).json({ error: 'Слишком много запросов' });
+  }
+
+  // Добавляем текущий запрос и обновляем Map
+  recentTimestamps.push(now);
+  requestLog.set(ip, recentTimestamps);
+
+  next();
+};
+
+// Кастомный middleware-логгер
 const logger = (req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 };
 
+// Глобальные middleware (подключаются до всех маршрутов)
 app.use(logger);
+app.use(rateLimiter);
 app.use(express.json());
 
 // Middleware авторизации для локальной защиты конкретного маршрута

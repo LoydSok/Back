@@ -17,7 +17,6 @@ const users = [
 
 const getNextId = (items) => (items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1);
 
-// Маршруты /users
 usersRouter.get('/', (req, res) => {
   res.json(users);
 });
