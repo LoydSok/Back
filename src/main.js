@@ -31,7 +31,32 @@ const db = {
 const app = express();
 const PORT = 3000;
 
+// Кастомный middleware-логгер (должен быть до всех маршрутов)
+const logger = (req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+};
+
+app.use(logger);
 app.use(express.json());
+
+// Middleware авторизации для локальной защиты конкретного маршрута
+const authMiddleware = (req, res, next) => {
+  if (!req.headers.authorization) {
+    return res.status(401).json({ error: 'Необходим заголовок Authorization' });
+  }
+  next();
+};
+
+// POST /echo — возвращает переданное JSON-тело
+app.post('/echo', (req, res) => {
+  res.json(req.body);
+});
+
+// GET /admin — доступен только при наличии заголовка Authorization
+app.get('/admin', authMiddleware, (req, res) => {
+  res.json({ message: 'Добро пожаловать в админ-панель' });
+});
 
 // Подключение роутера пользователей (/users)
 app.use('/users', usersRouter);
