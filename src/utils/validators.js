@@ -5,24 +5,32 @@ export const isEmailValid = (email) => {
 };
 
 export const isPasswordValid = (password) => {
-  // Минимум 8 символов, хотя бы одна буква и одна цифра
   if (typeof password !== 'string') return false;
   const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
   return passwordRegex.test(password);
 };
 
-export const validateUserData = (data) => {
+export const validateUserData = (data, isUpdate = false) => {
   const { name, email, password } = data;
 
-  if (!name || typeof name !== 'string' || name.trim() === '') {
-    return 'Имя обязательна и должно быть строкой';
+  if (!isUpdate || name !== undefined) {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return 'Имя обязательно и должно быть строкой';
+    }
   }
-  if (!isEmailValid(email)) {
-    return 'Некорректный формат email';
+
+  if (!isUpdate || email !== undefined) {
+    if (!isEmailValid(email)) {
+      return 'Некорректный формат email';
+    }
   }
-  if (password !== undefined && !isPasswordValid(password)) {
-    return 'Пароль должен содержать минимум 8 символов, хотя бы одну букву и цифру';
+
+  if (!isUpdate || password !== undefined) {
+    if (!isPasswordValid(password)) {
+      return 'Пароль должен содержать минимум 8 символов, хотя бы одну букву и цифру';
+    }
   }
+
   return null;
 };
 

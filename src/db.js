@@ -1,41 +1,64 @@
-export class User {
-  constructor(id, name, email, password) {
-    this.id = id;
-    this.name = name;
-    this.email = email;
-    this.password = password;
+import { Sequelize, DataTypes } from 'sequelize';
+
+export const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: './database.sqlite',
+  logging: false
+});
+
+export const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
   }
-}
+});
 
-export class Product {
-  constructor(id, title, price) {
-    this.id = id;
-    this.title = title;
-    this.price = price;
+export const Product = sequelize.define('Product', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  price: {
+    type: DataTypes.FLOAT,
+    allowNull: false
   }
-}
+});
 
-export class Order {
-  constructor(id, userId, productIds, totalPrice) {
-    this.id = id;
-    this.userId = userId;
-    this.productIds = productIds;
-    this.totalPrice = totalPrice;
+export const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  productIds: {
+    type: DataTypes.JSON, // Храним массив ID товаров в виде JSON
+    allowNull: false
+  },
+  totalPrice: {
+    type: DataTypes.FLOAT,
+    allowNull: false
   }
-}
-
-export const db = {
-  users: [
-    new User(1, 'Иван', 'ivan@example.com', 'Password123'),
-    new User(2, 'Мария', 'maria@example.com', 'Password123')
-  ],
-  products: [
-    new Product(1, 'Ноутбук', 50000),
-    new Product(2, 'Мышь', 1500)
-  ],
-  orders: [
-    new Order(1, 1, [1, 2], 51500)
-  ]
-};
-
-export const getNextId = (items) => (items.length > 0 ? Math.max(...items.map((i) => i.id)) + 1 : 1);
+});

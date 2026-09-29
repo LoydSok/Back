@@ -1,31 +1,22 @@
-import { db, Product, getNextId } from '../db.js';
+import { Product } from '../db.js';
 
 export const ProductsService = {
-  getAll: () => db.products,
+  getAll: async () => await Product.findAll(),
 
-  getById: (id) => db.products.find((p) => p.id === id),
+  getById: async (id) => await Product.findByPk(id),
 
-  create: ({ title, price }) => {
-    const id = getNextId(db.products);
-    const newProduct = new Product(id, title, price);
-    db.products.push(newProduct);
-    return newProduct;
+  create: async ({ title, price }) => await Product.create({ title, price }),
+
+  update: async (id, { title, price }) => {
+    const product = await Product.findByPk(id);
+    if (!product) return null;
+    return await product.update({ title, price });
   },
 
-  update: (id, { title, price }) => {
-    const index = db.products.findIndex((p) => p.id === id);
-    if (index === -1) return null;
-
-    const updatedProduct = new Product(id, title, price);
-    db.products[index] = updatedProduct;
-    return updatedProduct;
-  },
-
-  delete: (id) => {
-    const index = db.products.findIndex((p) => p.id === id);
-    if (index === -1) return null;
-
-    const [deletedProduct] = db.products.splice(index, 1);
-    return deletedProduct;
+  delete: async (id) => {
+    const product = await Product.findByPk(id);
+    if (!product) return null;
+    await product.destroy();
+    return product;
   }
 };

@@ -1,31 +1,24 @@
-import { db, Order, getNextId } from '../db.js';
+import { Order } from '../db.js';
 
 export const OrdersService = {
-  getAll: () => db.orders,
+  getAll: async () => await Order.findAll(),
 
-  getById: (id) => db.orders.find((o) => o.id === id),
+  getById: async (id) => await Order.findByPk(id),
 
-  create: ({ userId, productIds, totalPrice }) => {
-    const id = getNextId(db.orders);
-    const newOrder = new Order(id, userId, productIds, totalPrice);
-    db.orders.push(newOrder);
-    return newOrder;
+  create: async ({ userId, productIds, totalPrice }) => {
+    return await Order.create({ userId, productIds, totalPrice });
   },
 
-  update: (id, { userId, productIds, totalPrice }) => {
-    const index = db.orders.findIndex((o) => o.id === id);
-    if (index === -1) return null;
-
-    const updatedOrder = new Order(id, userId, productIds, totalPrice);
-    db.orders[index] = updatedOrder;
-    return updatedOrder;
+  update: async (id, { userId, productIds, totalPrice }) => {
+    const order = await Order.findByPk(id);
+    if (!order) return null;
+    return await order.update({ userId, productIds, totalPrice });
   },
 
-  delete: (id) => {
-    const index = db.orders.findIndex((o) => o.id === id);
-    if (index === -1) return null;
-
-    const [deletedOrder] = db.orders.splice(index, 1);
-    return deletedOrder;
+  delete: async (id) => {
+    const order = await Order.findByPk(id);
+    if (!order) return null;
+    await order.destroy();
+    return order;
   }
 };

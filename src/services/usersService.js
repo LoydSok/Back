@@ -1,31 +1,50 @@
-import { db, User, getNextId } from '../db.js';
+import bcrypt from 'bcrypt';
+import { User } from '../db.js';
+
+const SALT_ROUNDS = 10;
 
 export const UsersService = {
-  getAll: () => db.users,
-
-  getById: (id) => db.users.find((u) => u.id === id),
-
-  create: ({ name, email, password }) => {
-    const id = getNextId(db.users);
-    const newUser = new User(id, name, email, password);
-    db.users.push(newUser);
-    return newUser;
+  getAll: async () => {
+    return await User.findAll({ attributes: { exclude: ['password'] } });
   },
 
-  update: (id, { name, email, password }) => {
-    const index = db.users.findIndex((u) => u.id === id);
-    if (index === -1) return null;
-
-    const updatedUser = new User(id, name, email, password);
-    db.users[index] = updatedUser;
-    return updatedUser;
+  getById: async (id) => {
+    return await User.findByPk(id, { attributes: { exclude: ['password'] } });
   },
 
-  delete: (id) => {
-    const index = db.users.findIndex((u) => u.id === id);
-    if (index === -1) return null;
+  create: async ({ name, email, password }) => {
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    const user = await User.create({ name, email, password: hashedPassword });
+    
+    const userJson = user.toJSON();
+    delete userJson.password;
+    return userJson;
+  },
 
-    const [deletedUser] = db.users.splice(index, 1);
-    return deletedUser;
+  update: async (id, { name, email, password }) => {
+    const user = await User.findByPk(id);
+    if (!user) return null;
+
+    const updateData = { name, email };
+    if (password) {
+      updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
+    }
+
+    await user.update(updateData);
+    
+    const userJson = user.toJSON();
+    delete userJson.password;
+    return userJson;
+  },
+
+  delete: async (id) => {
+    const user = await User.findByPk(id);
+    if (!user) return null;
+
+    await user.destroy();
+    
+    const userJson = user.toJSON();
+    delete userJson.password;
+    return userJson;
   }
 };

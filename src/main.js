@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { sequelize } from './db.js';
 
 import usersRouter from './routes/usersRouter.js';
 import productsRouter from './routes/productsRouter.js';
@@ -45,7 +46,7 @@ const logger = (req, res, next) => {
   next();
 };
 
-// Auth middleware (только для /admin)
+// Auth middleware
 const authMiddleware = (req, res, next) => {
   if (!req.headers.authorization) {
     return res.status(401).json({ error: 'Необходим заголовок Authorization' });
@@ -53,13 +54,11 @@ const authMiddleware = (req, res, next) => {
   next();
 };
 
-// Глобальные middleware
 app.use(cors(corsOptions));
 app.use(logger);
 app.use(rateLimiter);
 app.use(express.json());
 
-// Отдельные маршруты
 app.post('/echo', (req, res) => res.json(req.body));
 
 app.get('/admin', authMiddleware, (req, res) => {
@@ -74,11 +73,22 @@ app.get('/search', (req, res) => {
   res.json({ q });
 });
 
-// Подключение роутеров сущностей
 app.use('/users', usersRouter);
 app.use('/products', productsRouter);
 app.use('/orders', ordersRouter);
 
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на http://localhost:${PORT}`);
-});
+// Инициализация БД и запуск сервера
+const startServer = async () => {
+  try {
+    await sequelize.sync(); // Создаёт таблицы в SQLite, если они еще не созданы
+    console.log('База данных успешно синхронизирована.');
+
+    app.listen(PORT, () => {
+      console.log(`Сервер запущен на http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Ошибка подключения к базе данных:', error);
+  }
+};
+
+startServer();
