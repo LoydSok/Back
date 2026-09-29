@@ -1,44 +1,17 @@
 import express from 'express';
 import cors from 'cors';
+
 import usersRouter from './routes/usersRouter.js';
-
-class Product {
-  constructor(id, title, price) {
-    this.id = id;
-    this.title = title;
-    this.price = price;
-  }
-}
-
-class Order {
-  constructor(id, userId, productIds, totalPrice) {
-    this.id = id;
-    this.userId = userId;
-    this.productIds = productIds;
-    this.totalPrice = totalPrice;
-  }
-}
-
-const db = {
-  products: [
-    new Product(1, 'Ноутбук', 50000),
-    new Product(2, 'Мышь', 1500)
-  ],
-  orders: [
-    new Order(1, 1, [1, 2], 51500)
-  ]
-};
+import productsRouter from './routes/productsRouter.js';
+import ordersRouter from './routes/ordersRouter.js';
 
 const app = express();
 const PORT = 3000;
 
-// Массив разрешённых origin
+// CORS
 const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
-
-// Настройка CORS с динамической проверкой по массиву
 const corsOptions = {
   origin: (origin, callback) => {
-    // !origin разрешает утилиты вроде Postman / cURL / серверные запросы без заголовка Origin
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -47,46 +20,32 @@ const corsOptions = {
   }
 };
 
-app.use(cors(corsOptions));
-
-// Хранилище запросов для rate limiter: Map<ip, Array<timestamp>>
+// Rate Limiter
 const requestLog = new Map();
-
-// Middleware для ограничения количества запросов (Rate Limiter)
 const rateLimiter = (req, res, next) => {
   const ip = req.ip;
   const now = Date.now();
-  const WINDOW_MS = 10 * 1000; // 10 секунд
+  const WINDOW_MS = 10 * 1000;
   const MAX_REQUESTS = 5;
 
-  const timestamps = requestLog.get(ip) || [];
+  const timestamps = (requestLog.get(ip) || []).filter((time) => now - time < WINDOW_MS);
 
-  // Оставляем только метки времени за последние 10 секунд
-  const recentTimestamps = timestamps.filter((time) => now - time < WINDOW_MS);
-
-  if (recentTimestamps.length >= MAX_REQUESTS) {
+  if (timestamps.length >= MAX_REQUESTS) {
     return res.status(429).json({ error: 'Слишком много запросов' });
   }
 
-  // Добавляем текущий запрос и обновляем Map
-  recentTimestamps.push(now);
-  requestLog.set(ip, recentTimestamps);
-
+  timestamps.push(now);
+  requestLog.set(ip, timestamps);
   next();
 };
 
-// Кастомный middleware-логгер
+// Logger
 const logger = (req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 };
 
-// Глобальные middleware
-app.use(logger);
-app.use(rateLimiter);
-app.use(express.json());
-
-// Middleware авторизации для локальной защиты конкретного маршрута
+// Auth middleware (только для /admin)
 const authMiddleware = (req, res, next) => {
   if (!req.headers.authorization) {
     return res.status(401).json({ error: 'Необходим заголовок Authorization' });
@@ -94,72 +53,31 @@ const authMiddleware = (req, res, next) => {
   next();
 };
 
-// POST /echo — возвращает переданное JSON-тело
-app.post('/echo', (req, res) => {
-  res.json(req.body);
-});
+// Глобальные middleware
+app.use(cors(corsOptions));
+app.use(logger);
+app.use(rateLimiter);
+app.use(express.json());
 
-// GET /admin — доступен только при наличии заголовка Authorization
+// Отдельные маршруты
+app.post('/echo', (req, res) => res.json(req.body));
+
 app.get('/admin', authMiddleware, (req, res) => {
   res.json({ message: 'Добро пожаловать в админ-панель' });
 });
 
-// Подключение роутера пользователей (/users)
-app.use('/users', usersRouter);
-
-// GET /search?q=... — проверка query-параметра q
 app.get('/search', (req, res) => {
   const { q } = req.query;
-
   if (!q) {
     return res.status(400).json({ error: 'Параметр "q" обязателен для поиска' });
   }
-
   res.json({ q });
 });
 
-// CRUD хелпер для остальных сущностей
-const getNextId = (items) => (items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1);
-
-function createCrudRoutes(routerPath, entityArray, EntityClass) {
-  app.get(routerPath, (req, res) => res.json(entityArray));
-
-  app.get(`${routerPath}/:id`, (req, res) => {
-    const id = Number(req.params.id);
-    const item = entityArray.find((el) => el.id === id);
-    if (!item) return res.status(404).json({ message: 'Запись не найдена' });
-    res.json(item);
-  });
-
-  app.post(routerPath, (req, res) => {
-    const id = getNextId(entityArray);
-    const newEntity = new EntityClass(id, ...Object.values(req.body));
-    entityArray.push(newEntity);
-    res.status(201).json(newEntity);
-  });
-
-  app.put(`${routerPath}/:id`, (req, res) => {
-    const id = Number(req.params.id);
-    const index = entityArray.findIndex((el) => el.id === id);
-    if (index === -1) return res.status(404).json({ message: 'Запись не найдена' });
-
-    const updatedEntity = new EntityClass(id, ...Object.values(req.body));
-    entityArray[index] = updatedEntity;
-    res.json(updatedEntity);
-  });
-
-  app.delete(`${routerPath}/:id`, (req, res) => {
-    const id = Number(req.params.id);
-    const index = entityArray.findIndex((el) => el.id === id);
-    if (index === -1) return res.status(404).json({ message: 'Запись не найдена' });
-
-    const [deletedItem] = entityArray.splice(index, 1);
-    res.json({ message: 'Успешно удалено', deletedItem });
-  });
-}
-
-createCrudRoutes('/products', db.products, Product);
-createCrudRoutes('/orders', db.orders, Order);
+// Подключение роутеров сущностей
+app.use('/users', usersRouter);
+app.use('/products', productsRouter);
+app.use('/orders', ordersRouter);
 
 app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
