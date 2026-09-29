@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import usersRouter from './routes/usersRouter.js';
 
 class Product {
@@ -30,6 +31,23 @@ const db = {
 
 const app = express();
 const PORT = 3000;
+
+// Массив разрешённых origin
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+
+// Настройка CORS с динамической проверкой по массиву
+const corsOptions = {
+  origin: (origin, callback) => {
+    // !origin разрешает утилиты вроде Postman / cURL / серверные запросы без заголовка Origin
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS запрещён для данного источника'));
+    }
+  }
+};
+
+app.use(cors(corsOptions));
 
 // Хранилище запросов для rate limiter: Map<ip, Array<timestamp>>
 const requestLog = new Map();
@@ -63,7 +81,7 @@ const logger = (req, res, next) => {
   next();
 };
 
-// Глобальные middleware (подключаются до всех маршрутов)
+// Глобальные middleware
 app.use(logger);
 app.use(rateLimiter);
 app.use(express.json());
